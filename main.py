@@ -86,40 +86,39 @@ def filter_out_all_before_bookmark(rects, bookmark_rect):
     return result
 
 
-def componentwise_sum_of_tuple(t1, t2):
+def componentwise_sum(t1, t2):
     if len(t1) != len(t2): raise Exception('суммируются кортежи разной длины')
     return tuple([t1[i] + t2[i] for i in range(len(t1))])
 
 
 def find_green(screenshot):
-    color = (233, 243, 235)
-    w, h = screenshot.size
-    for y in range(h):
-        for x in range(w):
-            if screenshot.getpixel((x, y)) == color:
-                return x, y
-    raise Exception("зеленый не найден")
-
-    # # ищем самую широкую полоску зеленого цвета
-    # # эта штука работает слишком медленно
     # color = (233, 243, 235)
     # w, h = screenshot.size
-    # max_w = 0
-    # crd_of_max = None
-    # fr = None
     # for y in range(h):
     #     for x in range(w):
-    #         if screenshot.getpixel((x, y)) == color and fr is None:
-    #             fr = x
-    #         if screenshot.getpixel((x, y)) != color and fr is not None:
-    #             to = x
-    #             if max_w < to - fr:
-    #                 max_w = to - fr
-    #                 crd_of_max = (fr, y)
-    #             break
-    # if crd_of_max is None:
-    #     raise Exception("зеленый не найден")
-    # return crd_of_max
+    #         if screenshot.getpixel((x, y)) == color:
+    #             return x, y
+    # raise Exception("зеленый не найден")
+
+    # ищем самую широкую полоску зеленого цвета
+    color = (233, 243, 235)
+    w, h = screenshot.size
+    max_w = 0
+    crd_of_max = None
+    fr = None
+    for y in range(0, h, 3):
+        for x in range(0, w, 3):
+            if screenshot.getpixel((x, y)) == color and fr is None:
+                fr = x
+            if screenshot.getpixel((x, y)) != color and fr is not None:
+                to = x
+                if max_w < to - fr:
+                    max_w = to - fr
+                    crd_of_max = (fr, y)
+                break
+    if crd_of_max is None:
+        raise Exception("зеленый не найден")
+    return crd_of_max
 
 
 def get_bookmark(screenshot: Screen_part):  # возвращает нижнюю часть главного скриншота (без панели задач)
@@ -163,8 +162,8 @@ def main():
     im_magic = Image.open('buttons/magic.png')
     im_left_side = Image.open('buttons/leftSide.png')
     im_right_side = Image.open('buttons/rightSide.png')
-    im_recs = Image.open('buttons/reks_mini.png')
-    # im_stat = Image.open('buttons/stat.png')
+    # im_recs = Image.open('buttons/reks_mini.png')
+    im_stat = Image.open('buttons/stat.png')
     im_next = Image.open('buttons/nextTask2.png')
     im_finish = Image.open('buttons/finishTest2.png')
 
@@ -201,29 +200,37 @@ def main():
             pag.moveTo(r.center())
             pag.click()
 
-            # делаем скрин и ищем "рекомендации"
             try:
-                screenshot2 = Screen_part(Rect(*pag.position(), 30, 30), take_a_screenshot=True)
-                r2 = Rect(*pag.locate(im_recs, screenshot2.im, grayscale=True, confidence=0.9)) + screenshot2.rect.pos()
-                pag.moveTo(r2.center())
-                # # делаем скрин и ищем "статистику"
-                # screenshot2 = Screen_part(Rect(*pag.position(), 40, 60), take_a_screenshot=True)
-                # r2 = Rect(*pag.locate(im_stat, screenshot2.im, grayscale=True, confidence=0.7)) + screenshot2.rect.pos()
+                # # делаем скрин и ищем "рекомендации"
+                # screenshot2 = Screen_part(Rect(*pag.position(), 30, 30), take_a_screenshot=True)
+                # r2 = Rect(*pag.locate(im_recs, screenshot2.im, grayscale=True, confidence=0.9)) + screenshot2.rect.pos()
                 # pag.moveTo(r2.center())
+                # делаем скрин и ищем "статистику"
+                screenshot2 = Screen_part(Rect(*pag.position(), 40, 60), take_a_screenshot=True)
+                r2 = Rect(*pag.locate(im_stat, screenshot2.im, grayscale=True, confidence=0.7)) + screenshot2.rect.pos()
+                pag.moveTo(r2.center())
             except:
                 continue  # скорее всего рекомендации за нижней границей экрана
 
             # делаем скрин и ищем зеленый цвет
-            # screenshot3 = Screen_part(Rect(int(pag.position().x) - 60, int(pag.position().y) - 200, 400, 400),
-            screenshot3 = Screen_part(Rect(int(pag.position().x) - 50, int(pag.position().y) - 20, 400, 50),
-                                      take_a_screenshot=True)
-            pag.moveTo(componentwise_sum_of_tuple(screenshot3.rect.pos(), find_green(screenshot3.im)))
+            # screenshot3 = Screen_part(Rect(int(pag.position().x) - 50, int(pag.position().y) - 20, 400, 50),
+            # ищем сначала слева, потом справа
+            mouse_x, mouse_y = int(pag.position().x), int(pag.position().y)
+            try:
+                screenshot3 = Screen_part(Rect(mouse_x - 60, mouse_y - 200, 50, 400), True)
+                pag.moveTo(componentwise_sum(screenshot3.rect.pos(), find_green(screenshot3.im)))
+            except:
+                try:
+                    screenshot3 = Screen_part(Rect(mouse_x + 200, mouse_y - 200, 150, 400), True)
+                    pag.moveTo(componentwise_sum(screenshot3.rect.pos(), find_green(screenshot3.im)))
+                except:
+                    continue
             pag.click()
 
         # если есть копка завершения - завершаем
         try:
             r_finish = Rect(*pag.locate(im_finish, screenshot.im, grayscale=True, confidence=0.8)) \
-                .to_abs(screenshot.rect)
+                       + screenshot.rect.pos()
             pag.moveTo(r_finish.center())
             pag.click()
             print("success!")
@@ -236,7 +243,7 @@ def main():
             r_next = Rect(*pag.locate(im_next, screenshot.im, grayscale=True, confidence=0.8)).to_abs(screenshot.rect)
             pag.moveTo(r_next.center())
             pag.click()
-            time.sleep(2)  # время на загрузку следующего задания
+            time.sleep(1.7)  # время на загрузку следующего задания
 
             bookmark = None  # после перехода на следующее задания текущая закладка уже не нужна
             continue
@@ -244,8 +251,10 @@ def main():
             pass
 
         # если этих кнопок нет - сохраняем закладку, скроллим и возвращаемя к шагу 1
+        pag.click(10, pag.position()[1])  # это нужно чтобы убрать меню с кнопкой рекомендации
         bookmark = get_bookmark(screenshot)
         pag.scroll(-950)
+        time.sleep(0.1)
 
 
 if __name__ == '__main__':
