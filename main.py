@@ -19,6 +19,14 @@ def filter_out_intersecting_rectangles(rects):
         history.append(r)
     return history
 
+def filter_out_under_bookmark(rects, bookmark_rect):
+    result = []
+    for r in rects:
+        if r.top + r.height < bookmark_rect.top:
+            continue
+        result.append(r)
+    return result
+
 
 def componentwise_sum_of_tuple(t1, t2):
     if len(t1) != len(t2): raise Exception('суммируются кортежи разной длины')
@@ -35,13 +43,25 @@ def find_green(screenshot):
     raise Exception("зеленый не найден")
 
 
+def get_bookmark(screenshot):  # возвращает нижнюю часть главного скриншота (без панели задач)
+    color = (231, 243, 245)
+    y_to = None
+    x = int(screenshot.size[0] / 2)
+    for y in range(screenshot.size[1] - 1, 0, -1):
+        if screenshot.getpixel((x, y)) == color:
+            y_to = y - 5
+            break
+    y_from = y_to - 50
+    return screenshot.crop((0, y_from, int(screenshot.size[0] / 2), y_to))
+
+
 def main():
     im_magic = Image.open('buttons/magic.png')
     im_left_side = Image.open('buttons/leftSide.png')
     im_right_side = Image.open('buttons/rightSide.png')
     im_recs = Image.open('buttons/reks_mini.png')
-    im_next = Image.open('buttons/nextTask.png')
-    im_finish = Image.open('buttons/finishTest.png')
+    im_next = Image.open('buttons/nextTask2.png')
+    im_finish = Image.open('buttons/finishTest2.png')
 
     # инициализация:
     # находим область с тестом
@@ -52,6 +72,9 @@ def main():
                        int(rect_right_side.left + rect_right_side.width - rect_left_side.left),
                        int(pag.size()[1] - 150))
     screenshot_pos = screenshot_rect[0:2]
+
+    bookmark = None
+    bookmark_rect = None
 
     while True:
         # план такой:
@@ -64,10 +87,23 @@ def main():
         # делаем скрин
         screenshot = pag.screenshot(region=screenshot_rect)
 
+        # если есть закладка - то обрезаем скрин до нее
+        if bookmark is not None:
+            bookmark_rect = pag.locate(bookmark, screenshot, grayscale=True, confidence=0.9)
+
+            # bookmark_rect = pag.locate(bookmark, screenshot, grayscale=True, confidence=0.9)
+            # screenshot = screenshot.crop((0, bookmark_rect.top, *screenshot.size))
+            # screenshot_rect = (screenshot_rect[0],
+            #                    screenshot_rect[1] + int(bookmark_rect.top),
+            #                    screenshot_rect[2],
+            #                    screenshot_rect[3] - int(bookmark_rect.top))
+            # screenshot_pos = screenshot_rect[0:2]
         # ищем на нем палочки
         try:
             rects = pag.locateAll(im_magic, screenshot, grayscale=True, confidence=0.9)
             rects = filter_out_intersecting_rectangles(rects)
+            if bookmark_rect is not None:
+                rects = filter_out_under_bookmark(rects, bookmark_rect)
         except:
             rects = []
 
@@ -93,7 +129,7 @@ def main():
 
         # если есть копка завершения - завершаем
         try:
-            r_finish = pag.locate(im_finish, screenshot, grayscale=True, confidence=0.7)
+            r_finish = pag.locate(im_finish, screenshot, grayscale=True, confidence=0.8)
             pag.moveTo(componentwise_sum_of_tuple(screenshot_pos, pag.center(r_finish)))
             pag.click()
             print("success!")
@@ -103,17 +139,21 @@ def main():
 
         # если есть копка перехода - переходим
         try:
-            r_next = pag.locate(im_next, screenshot, grayscale=True, confidence=0.6)
+            r_next = pag.locate(im_next, screenshot, grayscale=True, confidence=0.8)
             pag.moveTo(componentwise_sum_of_tuple(screenshot_pos, pag.center(r_next)))
             pag.click()
             time.sleep(2)
+
+            bookmark = None
+            bookmark_rect = None
             continue
         except:
             pass
 
-        # если нет - скроллим и возвращаемя к шагу 1
+        # если нет - скроллим, сохраняем, до куда дорешали и возвращаемя к шагу 1
+        bookmark = get_bookmark(screenshot)
         pag.scroll(-950)
-        time.sleep(0.8)
+        time.sleep(0.5)
 
 
 if __name__ == '__main__':
