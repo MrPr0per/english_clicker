@@ -122,13 +122,7 @@ def find_green(screenshot):
 
 
 def get_bookmark(screenshot: Screen_part):  # возвращает нижнюю часть главного скриншота (без панели задач)
-    color = (231, 243, 245)
-    y_to = None
-    x = int(screenshot.im.size[0] / 2)
-    for y in range(screenshot.im.size[1] - 1, 0, -1):
-        if screenshot.im.getpixel((x, y)) == color:
-            y_to = y - 5
-            break
+    y_to = screenshot.im.size[1] - 50
     y_from = y_to - 50
     return Screen_part(Rect(0, y_from, int(screenshot.im.size[0] / 2), y_to - y_from)
                        .to_abs(screenshot.rect), take_a_screenshot=True)
@@ -221,7 +215,7 @@ def main():
                 pag.moveTo(componentwise_sum(screenshot3.rect.pos(), find_green(screenshot3.im)))
             except:
                 try:
-                    screenshot3 = Screen_part(Rect(mouse_x + 200, mouse_y - 200, 150, 400), True)
+                    screenshot3 = Screen_part(Rect(mouse_x + 200, mouse_y - 250, 150, 450), True)
                     pag.moveTo(componentwise_sum(screenshot3.rect.pos(), find_green(screenshot3.im)))
                 except:
                     continue
